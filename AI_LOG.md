@@ -21,4 +21,10 @@ My decision: I went with Spotify-inspired music player. With my own name "mSound
     - Duplicate playlist names: allowed
 - Next: Build steps 1 - 5 (skeleton, library, play, next/previous)
 
-
+## Entry 2 - Choosing the music
+- Goal: Find music i am allowed to use and share in a public repo.
+- What i considered: I asked claude if i could use songs from Spotify. Then claude explained that this is not possible, because songs cannot be downloaded as mp3 files, and they are copyrighted, so they can not be put in a public Github repo.
+What i found: Claude said I could use Free Music Archive and then i checked the license on each track page.
+- My decision: I chose three tracks under CC BY 4.0 and credit the artist (title, artist, source and license link) in the README under "Music credits"
+- Note: Track 3 ("Cinematic Corporate Advertising Bed" by Alex Morgan) is marked as AI-generated on its source page. I still kept it, but noted this down in README.
+Files: armotonic_always_with_you.mp3, wekont_space_jam.mp3, alex_morgan_corporate_bed.mp3 
