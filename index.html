@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mSounds</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top bar with the app name -->
+  <header class="app-header">
+    <h1>mSounds</h1>
+  </header>
+
+  <!-- Main area: the library list -->
+  <main class="content">
+    <h2>Library</h2>
+
+    <!-- Used to show errors such as "file could not be loaded".
+         role="alert" makes screen readers announce it. -->
+    <p id="message" class="message" role="alert" hidden></p>
+
+    <!-- app.js fills this list with one <li> per track -->
+    <ul id="track-list" class="track-list"></ul>
+  </main>
+
+  <!-- Player bar, fixed at the bottom of the screen -->
+  <footer class="player-bar">
+    <div class="now-playing">
+      <div id="np-title" class="np-title">Nothing playing</div>
+      <div id="np-artist" class="np-artist">Pick a track</div>
+    </div>
+
+    <button id="play-btn" class="play-btn" type="button" aria-label="Play">▶</button>
+  </footer>
+
+  <!-- Order matters: tracks.js defines TRACKS, app.js uses it.
+       Scripts are at the end so the HTML above already exists when they run. -->
+  <script src="tracks.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

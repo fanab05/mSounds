@@ -1,0 +1,160 @@
+/* ---------- Colours and sizes in one place ----------
+   CSS variables: change a colour here and it changes everywhere. */
+   :root {
+    --bg: #121212;          /* page background */
+    --surface: #181818;     /* header and player bar */
+    --row-hover: #2a2a2a;   /* track row on hover */
+    --text: #ffffff;
+    --text-dim: #b3b3b3;    /* secondary text (artist, duration) */
+    --accent: #1db954;      /* green accent colour */
+    --error: #ff6b6b;
+    --player-height: 80px;
+  }
+  
+  /* Make width/height include padding and border: easier to reason about */
+  * {
+    box-sizing: border-box;
+  }
+  
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    /* Leave room at the bottom so the fixed player bar
+       never covers the last track in the list */
+    padding-bottom: calc(var(--player-height) + 16px);
+  }
+  
+  /* ---------- Header ---------- */
+  .app-header {
+    background: var(--surface);
+    padding: 16px 24px;
+  }
+  
+  .app-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--accent);
+  }
+  
+  /* ---------- Main content ---------- */
+  .content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  
+  .content h2 {
+    margin-top: 0;
+  }
+  
+  /* Error / info message */
+  .message {
+    background: #2b1a1a;
+    border-left: 4px solid var(--error);
+    color: var(--error);
+    padding: 10px 14px;
+    border-radius: 4px;
+  }
+  
+  /* The "hidden" attribute normally hides an element, but a CSS "display"
+     rule would override it. This line makes sure hidden always wins. */
+  [hidden] {
+    display: none !important;
+  }
+  
+  /* ---------- Track list ---------- */
+  .track-list {
+    list-style: none;   /* remove bullet points */
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Each row is a button, so it works with mouse AND keyboard (Tab + Enter) */
+  .track-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    padding: 10px 14px;
+    background: transparent;
+    color: inherit;
+    border: none;
+    border-radius: 6px;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  
+  .track-item:hover {
+    background: var(--row-hover);
+  }
+  
+  /* The track that is currently loaded */
+  .track-item.active .track-title {
+    color: var(--accent);
+  }
+  
+  .track-info {
+    min-width: 0;   /* needed so long titles can be truncated inside flexbox */
+  }
+  
+  /* Long text is cut off with "..." instead of breaking the layout */
+  .track-title,
+  .track-artist,
+  .np-title,
+  .np-artist {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .track-artist,
+  .track-duration,
+  .np-artist {
+    color: var(--text-dim);
+    font-size: 0.875rem;
+  }
+  
+  /* ---------- Player bar ---------- */
+  .player-bar {
+    position: fixed;     /* stays in place when the page scrolls */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--player-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 24px;
+    background: var(--surface);
+    border-top: 1px solid #282828;
+  }
+  
+  .now-playing {
+    min-width: 0;        /* allows truncation of long titles */
+  }
+  
+  .np-title {
+    font-weight: 600;
+  }
+  
+  /* Round play/pause button */
+  .play-btn {
+    flex-shrink: 0;      /* never let the button get squeezed */
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: var(--text);
+    color: #000;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  
+  .play-btn:hover {
+    transform: scale(1.06);
+  }
