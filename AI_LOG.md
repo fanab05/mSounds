@@ -28,3 +28,25 @@ What i found: Claude said I could use Free Music Archive and then i checked the 
 - My decision: I chose three tracks under CC BY 4.0 and credit the artist (title, artist, source and license link) in the README under "Music credits"
 - Note: Track 3 ("Cinematic Corporate Advertising Bed" by Alex Morgan) is marked as AI-generated on its source page. I still kept it, but noted this down in README.
 Files: armotonic_always_with_you.mp3, wekont_space_jam.mp3, alex_morgan_corporate_bed.mp3 
+
+## Entry 3 - Building steps 1 - 4 (library, play song, play/pause)
+- Goal: Get a first working version: library list, play a track, show title and artist in the player bar, and a play/pause button.
+- My prompt: I asked Claude to build just for now steps 1 - 4 of the plan. I gave it a tracks.js and required textContent (not innerHTML), a fixed playbar and an error message if an mp3 fails to load.
+- What the AI gave: index.html, style.css and app.js. The app.js has a "state" object, "renderLibrary()", "renderPlayer()", "playTrack()", and "togglePlayPause()" and it listens to the audio element´s events.
+- What I did: I pasted the generated codes for each file into VS Code and opned index.html in Chrome. 
+- How/ what i tested: 
+    I tested that all 3 tracks are listed with correct durations. 
+    I tested by clicking a track then it played it and showed its title and artist in the bar. That also worked.
+    That the playing track turns green in the list. Works.
+    Play/pause toggles the icon.
+- Edge cases tested:
+    - Pressing play before choosing a track: shows "Pick a track from the library first"
+    - Missing mp3 file (To test i renamed one temporarily): an error message was shown and the app does not freeze. It works now, but see Entry 4 for a bug that accured.
+    - A track plays to the end, then i press play: it stops, and play starts it from the beginning. 
+- Problems found: One bug with the button (play/pause) icon when a file is missing (Entry 4).
+
+## Entry 4 - Fixing the button icon bug
+- Problem: With a missing mp3, the error message appeared but the button still showed the pause icon, as if the track was playing. 
+- My prompt: Describe the bug and ask Claude to explain the cause in simple terms and give the smallest fix.
+What the AI gave: An explanation that the icon was drawn from a stored copy of the status ('state.isPlaying'). That copy can disagree with the real audio element when a file fails to load. The fix was to have a helper func "isReallyPlaying()", that asks the audio element directly (not paused and no error). It is used when drawing the button, and "renderPlayer()" is also called after a failed play.
+- Result and re-testing: All three tracks play and switch, play/pause works, and with a missing mp3 the icon now shows play, together with the error message. 

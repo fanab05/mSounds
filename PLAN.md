@@ -1,4 +1,5 @@
 mSounds: Plan
+
 1. Assumptions
 Everything runs in the browser. No server, so GitHub Pages can host it as-is.
 Track data is a hand-written list in tracks.js. You add a track by adding one entry and dropping the mp3 into audio/.
@@ -8,8 +9,8 @@ Audio file paths are relative (audio/song.mp3), so they work both locally and on
 Targeting modern desktop browsers first; mobile layout is a bonus.
 You own or have the right to use the mp3 files (royalty-free or your own music), since the repo will be public.
 A single UI “view” is shown at a time: Library, or one Playlist.
-2. Data structures
 
+2. Data structures
 Track (in tracks.js, static):
 
 {
@@ -36,6 +37,7 @@ App state (a plain JS object in app.js, not saved):
   currentTrackId, queue (list of ids), queueIndex,
   isPlaying, view ("library" | playlistId), searchText
 }
+
 3. Dividing the code
 File	Responsibility
 index.html	Page structure only: sidebar (library + playlists), main list, search box, player bar. No logic.
@@ -89,6 +91,7 @@ General
 Special characters in titles (<, &, quotes): use textContent, not innerHTML with raw text.
 Very long titles: truncate with CSS.
 Wrong file paths on GitHub Pages (case-sensitive: Song.mp3 ≠ song.mp3).
+
 5. Build order (test after each step)
 Skeleton: index.html, style.css, tracks.js, app.js linked together; console.log(TRACKS) works. Push to GitHub Pages early to confirm the deployment works.
 Render the library: show all tracks in a list. Test: every track appears.
