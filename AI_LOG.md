@@ -71,3 +71,12 @@ How i tested: I went through the 20-point checklist (case, artist, match, extra 
 Result: All points worked.
 Problems found: none
 Next: Playlists (create, rename, delete, add/remove tracks, saved in localStorage).
+
+## Entry 7 - Playlists, part A (data layer and saving)
+- Goal: Build and test the playlist data functions and saving, with no visible UI yet, so that i can test them in the console first.
+- My prompt: Pasted my current files and aksed for the data functions (create, rename, delete, add, remove) with my rules: empty names rejected, duplicate names allowed, a track cannot be added twice, unknown ids handled safely, saving in localStorage inside try/catch. I also asked for a console test checklist.
+What the AI gave: Updated app.js with "state.playlists", five data functions that return {ok, reason}, and "loadPlaylists()" which cleans broken data.
+- How i tested: In the browser console, since there was no UI yet. I created playlists, tried an empty name, added the same track twice, added an unknown track, renamed, reloaded the page and checked Local Storage in the Application tab, and put a playlist with an unknown and a repeated track id into localStorage by hand.
+- Results: All checks behaved as expected. The empty name was rejected, the duplicate and unknown tracks were rejected with a reason, the playlists were still there after a reload, and the bad track ids were removed when loading (the playlist ended with 2 valid ids insted of 4).
+- Problems found: No bugs in the code. 
+- Next: Playlists UI (sidebar, view a playlist, add/remove/rename/delete)
