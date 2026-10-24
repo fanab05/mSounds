@@ -62,3 +62,12 @@ What the AI gave: An explanation that the icon was drawn from a stored copy of t
     - Volume: slider, saved volum after reload, corrupted localStorage value, private window (tests 14 - 17). works.
 - Problems found: none in the checklist while testing.
 - Next: Search (step 9), then playlist (steps 10 - 12)
+
+## Entry 6 - Step 9: search
+- Goal: Search by title or artist, filtering the library as i type.
+- My prompt: Pasted my current index.html, style.css and app.js and asked Claude to build on them. I wrote down the rule from my plan (the queue is the list currently shown) and asked what happens when the playing track is hidden by the search. 
+- What the AI gave: A search box, "getVisibleTracks()" which trims lower-case and matches title and artist, a "No tracks found" message, and "applySearch()" which rebuilds the queue from the shown tracks. When the playing track is hidden, the playback is never interrupted, Next starts the first shown track, previous restarts the current track.
+How i tested: I went through the 20-point checklist (case, artist, match, extra spaces, no results, clear button, HTML characters, reload, playing while filtered, queue and auto-advance following the filter, playing track hidden by the search and a missing mp3).
+Result: All points worked.
+Problems found: none
+Next: Playlists (create, rename, delete, add/remove tracks, saved in localStorage).
