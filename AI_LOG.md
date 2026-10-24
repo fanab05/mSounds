@@ -50,3 +50,15 @@ Files: armotonic_always_with_you.mp3, wekont_space_jam.mp3, alex_morgan_corporat
 - My prompt: Describe the bug and ask Claude to explain the cause in simple terms and give the smallest fix.
 What the AI gave: An explanation that the icon was drawn from a stored copy of the status ('state.isPlaying'). That copy can disagree with the real audio element when a file fails to load. The fix was to have a helper func "isReallyPlaying()", that asks the audio element directly (not paused and no error). It is used when drawing the button, and "renderPlayer()" is also called after a failed play.
 - Result and re-testing: All three tracks play and switch, play/pause works, and with a missing mp3 the icon now shows play, together with the error message. 
+
+## Entry 5 - Steps 5 - 8 (next/previous, auto-advance, progress bar, volume)
+- Goal: Add a queue with next/previous, auto-advance, a progress bar that shows elapsed and remaining time, and a volume slider.
+- My prompt: Pasted my current app.js and asked Claude to build on that exact file. 
+- What AI gave: Updated index.html, style.css and app.js, plus a 17 - point test checklist for the new edge cases.
+- How i tested: Went through the whole checklist in Chrome with open console. I tested the old functions first (play, pause, switch track), then the new ones. 
+    - Next/prev, including the first and last track, previous within and after 3 seconds, and a missing mp3 (test 1 - 4) also works.
+    - Auto - advance and the end of the queue (tests 5 - 6): works
+    - Seek bar and times: dragging, clicking, seeking while paused, keyboard, broken track (tests 7 - 13): works
+    - Volume: slider, saved volum after reload, corrupted localStorage value, private window (tests 14 - 17). works.
+- Problems found: none in the checklist while testing.
+- Next: Search (step 9), then playlist (steps 10 - 12)
