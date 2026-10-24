@@ -17,12 +17,22 @@
   <main class="content">
     <h2>Library</h2>
 
+    <!-- Search box. type="search" gives a clear (x) button in most browsers.
+         app.js filters the list on every "input" event (every keystroke). -->
+    <input id="search-input" class="search" type="search"
+           placeholder="Search by title or artist"
+           aria-label="Search tracks" autocomplete="off">
+
     <!-- Used to show errors such as "file could not be loaded".
          role="alert" makes screen readers announce it. -->
     <p id="message" class="message" role="alert" hidden></p>
 
-    <!-- app.js fills this list with one <li> per track -->
+    <!-- app.js fills this list with one <li> per track that matches the search -->
     <ul id="track-list" class="track-list"></ul>
+
+    <!-- Shown by app.js when the search matches nothing.
+         aria-live="polite" lets screen readers announce it. -->
+    <p id="no-results" class="no-results" aria-live="polite" hidden>No tracks found</p>
   </main>
 
   <!-- Player bar, fixed at the bottom of the screen.

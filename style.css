@@ -49,6 +49,44 @@
     margin-top: 0;
   }
   
+  /* ---------- Search box ---------- */
+  .search {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    background: var(--row-hover);
+    color: var(--text);
+    border: 1px solid transparent;
+    border-radius: 20px;
+    font: inherit;
+  }
+  
+  .search::placeholder {
+    color: var(--text-dim);
+  }
+  
+  /* Green outline while typing */
+  .search:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  
+  /* The small "x" that clears the search (Chrome / Safari / Edge).
+     Its default colour is dark, so we invert it to make it visible. */
+  .search::-webkit-search-cancel-button {
+    filter: invert(1);
+    cursor: pointer;
+  }
+  
+  /* "No tracks found" line */
+  .no-results {
+    margin: 16px 14px;
+    color: var(--text-dim);
+  }
+  
   /* Error / info message */
   .message {
     background: #2b1a1a;

@@ -1,5 +1,5 @@
 /* =====================================================
-   mSounds: app.js  (steps 1 to 8)
+   mSounds: app.js  (steps 1 to 9)
    - Show the library
    - Click a track to play it
    - Play/pause button
@@ -7,6 +7,7 @@
    - Auto-advance when a track ends
    - Progress bar with elapsed and remaining time
    - Volume slider (remembered in localStorage)
+   - Search by title or artist (the queue follows the shown list)
    ===================================================== */
 
 /* ---------- 1. State ----------
@@ -15,9 +16,10 @@
    const state = {
     currentTrackId: null,  // id of the loaded track (null = none yet)
     isPlaying: false,      // true while audio is playing
+    searchText: "",        // what the user typed in the search box
     queue: TRACKS.map(function (track) {
-      return track.id;     // the queue = all track ids, in library order
-    }),
+      return track.id;     // the queue = ids of the tracks currently SHOWN, in order.
+    }),                    // At start that is all tracks; search changes it.
     seekTarget: null       // null = user is NOT using the seek bar.
                            // A number = the second the user dragged to
                            // (chosen, but not applied to the audio yet)
@@ -35,17 +37,19 @@
   
   /* ---------- 2. Grab the HTML elements we need ----------
      Done once at the top so we don't search the page again and again. */
-  const trackListEl    = document.getElementById("track-list");
-  const messageEl      = document.getElementById("message");
-  const npTitleEl      = document.getElementById("np-title");
-  const npArtistEl     = document.getElementById("np-artist");
-  const playBtnEl      = document.getElementById("play-btn");
-  const prevBtnEl      = document.getElementById("prev-btn");
-  const nextBtnEl      = document.getElementById("next-btn");
-  const seekBarEl      = document.getElementById("seek-bar");
-  const timeElapsedEl  = document.getElementById("time-elapsed");
+  const trackListEl     = document.getElementById("track-list");
+  const searchInputEl   = document.getElementById("search-input");
+  const noResultsEl     = document.getElementById("no-results");
+  const messageEl       = document.getElementById("message");
+  const npTitleEl       = document.getElementById("np-title");
+  const npArtistEl      = document.getElementById("np-artist");
+  const playBtnEl       = document.getElementById("play-btn");
+  const prevBtnEl       = document.getElementById("prev-btn");
+  const nextBtnEl       = document.getElementById("next-btn");
+  const seekBarEl       = document.getElementById("seek-bar");
+  const timeElapsedEl   = document.getElementById("time-elapsed");
   const timeRemainingEl = document.getElementById("time-remaining");
-  const volumeBarEl    = document.getElementById("volume-bar");
+  const volumeBarEl     = document.getElementById("volume-bar");
   
   /* ---------- 3. Helper functions ---------- */
   
@@ -76,16 +80,53 @@
     }
   }
   
-  /* Where is the current track in the queue? 0 = first, -1 = not in queue.
-     We look it up each time instead of storing it, so it can never be out of date. */
+  /* Prepare text for comparing:
+     - trim()                  removes spaces at the start and end
+     - replace(/\s+/g, " ")    turns any run of spaces into ONE space
+     - toLowerCase()           so "SPACE" and "space" are equal
+     Example: "  Space   JAM " -> "space jam" */
+  function normalizeText(text) {
+    return text.trim().replace(/\s+/g, " ").toLowerCase();
+  }
+  
+  /* The tracks that match the current search, in library order.
+     An empty search matches everything. A track matches when the search
+     text appears in its title OR in its artist. */
+  function getVisibleTracks() {
+    const query = normalizeText(state.searchText);
+    if (query === "") return TRACKS;
+  
+    return TRACKS.filter(function (track) {
+      return normalizeText(track.title).includes(query) ||
+             normalizeText(track.artist).includes(query);
+    });
+  }
+  
+  /* Where is the current track in the queue? 0 = first, -1 = not in the queue.
+     We look it up each time instead of storing it, so it can never be out of date.
+     -1 also happens when the playing track is hidden by the search. */
   function getQueueIndex() {
     return state.queue.indexOf(state.currentTrackId);
   }
   
-  /* Is there a track after the current one? */
+  /* Is there a track to go to with "Next"?
+     - nothing loaded, or the queue is empty: no
+     - playing track is NOT in the shown list: yes, Next starts the list
+       from its first track (see getNextTrackId)
+     - otherwise: yes if the current track is not the last one */
   function hasNextTrack() {
+    if (state.currentTrackId === null || state.queue.length === 0) return false;
+  
     const index = getQueueIndex();
-    return index !== -1 && index < state.queue.length - 1;
+    if (index === -1) return true;
+    return index < state.queue.length - 1;
+  }
+  
+  /* The id of the track "Next" should play (call only if hasNextTrack() is true).
+     Playing track hidden by the search -> first track of the shown list. */
+  function getNextTrackId() {
+    const index = getQueueIndex();
+    return index === -1 ? state.queue[0] : state.queue[index + 1];
   }
   
   /* Length of the current track in seconds.
@@ -120,11 +161,15 @@
   
   /* ---------- 4. Rendering (drawing the page from the data) ---------- */
   
-  /* Build the library list: one row per track. */
+  /* Build the library list: one row per VISIBLE track.
+     If the search matches nothing, show "No tracks found" instead. */
   function renderLibrary() {
-    trackListEl.textContent = "";  // empty the list first
+    const tracks = getVisibleTracks();
   
-    TRACKS.forEach(function (track) {
+    trackListEl.textContent = "";          // empty the list first
+    noResultsEl.hidden = tracks.length > 0; // show the message only when empty
+  
+    tracks.forEach(function (track) {
       // <li><button class="track-item"> ... </button></li>
       const li = document.createElement("li");
   
@@ -225,12 +270,14 @@
       playBtnEl.setAttribute("aria-label", "Play");
     }
   
-    // Previous: needs a loaded track (on the first track it restarts it).
-    // Next: needs a loaded track AND a track after it.
-    prevBtnEl.disabled = (getQueueIndex() === -1);
+    // Previous: needs a loaded track (it restarts the track when there is
+    // nothing before it in the queue, even if the search hides the track).
+    // Next: see hasNextTrack().
+    prevBtnEl.disabled = (state.currentTrackId === null);
     nextBtnEl.disabled = !hasNextTrack();
   
-    // Highlight the row of the current track, un-highlight the others
+    // Highlight the row of the current track, un-highlight the others.
+    // (If the track is hidden by the search, no row is highlighted.)
     const rows = trackListEl.querySelectorAll(".track-item");
     rows.forEach(function (row) {
       row.classList.toggle("active", row.dataset.id === state.currentTrackId);
@@ -291,21 +338,25 @@
     }
   }
   
-  /* Go to the next track in the queue. Does nothing on the last track
-     (the button is disabled there too, this is just a safety net). */
+  /* Go to the next track in the queue (the shown list). Does nothing when
+     there is no next track (the button is disabled there too, this is just
+     a safety net). If the playing track is hidden by the search, this starts
+     the shown list from its first track. */
   function playNext() {
     if (!hasNextTrack()) return;
-    playTrack(state.queue[getQueueIndex() + 1]);
+    playTrack(getNextTrackId());
   }
   
   /* Previous button:
-     - on the first track, or 3+ seconds into a track: restart this track
+     - nothing before this track in the queue (first track, or the track is
+       hidden by the search), or 3+ seconds into a track: restart this track
      - otherwise: go back to the previous track */
   function playPrevious() {
-    const index = getQueueIndex();
-    if (index === -1) return;  // nothing loaded
+    if (state.currentTrackId === null) return;  // nothing loaded
   
-    if (index === 0 || audio.currentTime >= RESTART_AFTER) {
+    const index = getQueueIndex();   // -1 (hidden by search) or 0 (first): nothing before it
+  
+    if (index <= 0 || audio.currentTime >= RESTART_AFTER) {
       audio.currentTime = 0;   // restart (play/pause state is not changed)
       renderProgress();
     } else {
@@ -324,6 +375,19 @@
     }
     state.seekTarget = null;   // automatic updates may move the bar again
     renderProgress();
+  }
+  
+  /* ----- Search ----- */
+  
+  /* Read the search box, rebuild the queue from the shown tracks, redraw.
+     Does NOT touch the audio: filtering never stops or restarts a track. */
+  function applySearch() {
+    state.searchText = searchInputEl.value;
+    state.queue = getVisibleTracks().map(function (track) {
+      return track.id;
+    });
+    renderLibrary();   // draws the matching rows (or "No tracks found")
+    renderPlayer();    // re-applies the highlight and the Next/Previous state
   }
   
   /* ----- Volume (saved in localStorage) ----- */
@@ -376,7 +440,7 @@
   
   audio.addEventListener("ended", function () {
     if (hasNextTrack()) {
-      playNext();                // auto-advance to the next track
+      playNext();                // auto-advance (follows the shown list)
     } else {
       state.isPlaying = false;   // end of the queue: stop
       renderPlayer();
@@ -401,6 +465,10 @@
   playBtnEl.addEventListener("click", togglePlayPause);
   prevBtnEl.addEventListener("click", playPrevious);
   nextBtnEl.addEventListener("click", playNext);
+  
+  /* Search box: "input" fires on every change: typing, deleting, pasting,
+     and the clear (x) button. */
+  searchInputEl.addEventListener("input", applySearch);
   
   /* Seek bar.
      "input"  = fires continuously while the thumb moves (also on a click or arrow key).
@@ -428,5 +496,5 @@
   
   /* ---------- 8. Start the app ---------- */
   setVolume(loadVolume());
-  renderLibrary();
-  renderPlayer();
+  applySearch();   // reads the search box (some browsers restore its text after a
+                   // reload), builds the queue, draws the list and the player bar
