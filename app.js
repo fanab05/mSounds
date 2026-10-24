@@ -1,5 +1,5 @@
 /* =====================================================
-   mSounds: app.js  (steps 1 to 9)
+   mSounds: app.js  (steps 1 to 10)
    - Show the library
    - Click a track to play it
    - Play/pause button
@@ -8,6 +8,7 @@
    - Progress bar with elapsed and remaining time
    - Volume slider (remembered in localStorage)
    - Search by title or artist (the queue follows the shown list)
+   - Playlists: data layer + saving (no visible UI yet)
    ===================================================== */
 
 /* ---------- 1. State ----------
@@ -20,15 +21,18 @@
     queue: TRACKS.map(function (track) {
       return track.id;     // the queue = ids of the tracks currently SHOWN, in order.
     }),                    // At start that is all tracks; search changes it.
+    playlists: [],         // all playlists: { id, name, trackIds: [] }.
+                           // Filled from localStorage at start-up (see section 8).
     seekTarget: null       // null = user is NOT using the seek bar.
                            // A number = the second the user dragged to
                            // (chosen, but not applied to the audio yet)
   };
   
   /* Settings in one place, so they are easy to find and change */
-  const RESTART_AFTER = 3;          // seconds: "Previous" restarts the track after this
-  const VOLUME_KEY = "msounds.volume";   // name used in localStorage
-  const DEFAULT_VOLUME = 0.8;       // 0 (silent) to 1 (full)
+  const RESTART_AFTER = 3;                    // seconds: "Previous" restarts the track after this
+  const VOLUME_KEY = "msounds.volume";        // name used in localStorage
+  const PLAYLISTS_KEY = "msounds.playlists";  // name used in localStorage
+  const DEFAULT_VOLUME = 0.8;                 // 0 (silent) to 1 (full)
   
   /* One audio player for the whole app. It is not added to the page,
      we only control it from JavaScript. We reuse this one element for every
@@ -390,6 +394,178 @@
     renderPlayer();    // re-applies the highlight and the Next/Previous state
   }
   
+  /* ----- Playlists: saving and loading (localStorage) ----- */
+  
+  /* Save all playlists. Returns true if it worked, false if storage is
+     blocked or full. A failed save never crashes the app: the change stays
+     in memory, it is just not remembered after a reload. */
+  function savePlaylists() {
+    try {
+      localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(state.playlists));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  /* Read the saved playlists and return a CLEAN array.
+     Anything wrong (nothing saved, broken JSON, not an array, blocked storage)
+     gives an empty list. Inside the array, a broken playlist is skipped and
+     a broken track id is dropped, so one bad entry can't break the rest.
+     Never throws. */
+  function loadPlaylists() {
+    try {
+      const raw = localStorage.getItem(PLAYLISTS_KEY);
+      if (raw === null) return [];            // nothing saved yet
+  
+      const data = JSON.parse(raw);           // throws if the text is not valid JSON
+      if (!Array.isArray(data)) return [];    // wrong shape
+  
+      const clean = [];
+      const seenIds = new Set();              // to skip duplicate playlist ids
+  
+      data.forEach(function (item) {
+        // Skip anything that is not a complete playlist
+        if (item === null || typeof item !== "object") return;
+        if (typeof item.id !== "string" || item.id === "") return;
+        if (seenIds.has(item.id)) return;
+        if (typeof item.name !== "string" || item.name.trim() === "") return;
+        if (!Array.isArray(item.trackIds)) return;
+  
+        // Keep only track ids that still exist in TRACKS, without repeats
+        const trackIds = [];
+        item.trackIds.forEach(function (trackId) {
+          if (typeof trackId === "string" &&
+              getTrackById(trackId) !== undefined &&
+              !trackIds.includes(trackId)) {
+            trackIds.push(trackId);
+          }
+        });
+  
+        seenIds.add(item.id);
+        clean.push({ id: item.id, name: item.name.trim(), trackIds: trackIds });
+      });
+  
+      return clean;
+    } catch (error) {
+      return [];   // broken JSON or blocked storage: start with an empty list
+    }
+  }
+  
+  /* ----- Playlists: data functions (they change data only: no DOM, no audio) -----
+     Every function returns { ok: true } on success,
+     or { ok: false, reason: "..." } so the UI can show the reason later. */
+  
+  /* Find a playlist by id. Returns undefined if not found. */
+  function getPlaylistById(id) {
+    return state.playlists.find(function (playlist) {
+      return playlist.id === id;
+    });
+  }
+  
+  /* Make an id that no existing playlist uses.
+     Start with "p_" + the current time in milliseconds. If that is taken
+     (two playlists in the same millisecond), add _1, _2, ... until it is free. */
+  function makePlaylistId() {
+    const base = "p_" + Date.now();
+    let id = base;
+    let counter = 1;
+    while (getPlaylistById(id) !== undefined) {
+      id = base + "_" + counter;
+      counter++;
+    }
+    return id;
+  }
+  
+  /* Check a playlist name and return the trimmed version,
+     or null if it is not valid (not text, empty, or only spaces). */
+  function cleanPlaylistName(name) {
+    if (typeof name !== "string") return null;
+    const trimmed = name.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+  
+  /* Create a new, empty playlist. Same names are allowed (ids are unique).
+     Success also returns the new id: { ok: true, id: "..." } */
+  function createPlaylist(name) {
+    const cleanName = cleanPlaylistName(name);
+    if (cleanName === null) {
+      return { ok: false, reason: "Please enter a playlist name." };
+    }
+  
+    const playlist = { id: makePlaylistId(), name: cleanName, trackIds: [] };
+    state.playlists.push(playlist);
+    savePlaylists();
+    return { ok: true, id: playlist.id };
+  }
+  
+  /* Give an existing playlist a new name. */
+  function renamePlaylist(id, name) {
+    const playlist = getPlaylistById(id);
+    if (!playlist) {
+      return { ok: false, reason: "Playlist not found." };
+    }
+  
+    const cleanName = cleanPlaylistName(name);
+    if (cleanName === null) {
+      return { ok: false, reason: "Please enter a playlist name." };
+    }
+  
+    playlist.name = cleanName;
+    savePlaylists();
+    return { ok: true };
+  }
+  
+  /* Delete a playlist. Only the playlist is removed: the tracks stay in the
+     library, and a track that is playing keeps playing. */
+  function deletePlaylist(id) {
+    const index = state.playlists.findIndex(function (playlist) {
+      return playlist.id === id;
+    });
+    if (index === -1) {
+      return { ok: false, reason: "Playlist not found." };
+    }
+  
+    state.playlists.splice(index, 1);
+    savePlaylists();
+    return { ok: true };
+  }
+  
+  /* Add a track to the END of a playlist. We store the track id only. */
+  function addTrackToPlaylist(playlistId, trackId) {
+    const playlist = getPlaylistById(playlistId);
+    if (!playlist) {
+      return { ok: false, reason: "Playlist not found." };
+    }
+    if (!getTrackById(trackId)) {
+      return { ok: false, reason: "Track not found." };
+    }
+    if (playlist.trackIds.includes(trackId)) {
+      return { ok: false, reason: "This track is already in the playlist." };
+    }
+  
+    playlist.trackIds.push(trackId);
+    savePlaylists();
+    return { ok: true };
+  }
+  
+  /* Remove a track from a playlist (the track stays in the library). */
+  function removeTrackFromPlaylist(playlistId, trackId) {
+    const playlist = getPlaylistById(playlistId);
+    if (!playlist) {
+      return { ok: false, reason: "Playlist not found." };
+    }
+  
+    const index = playlist.trackIds.indexOf(trackId);
+    if (index === -1) {
+      return { ok: false, reason: "This track is not in the playlist." };
+    }
+  
+    playlist.trackIds.splice(index, 1);
+    savePlaylists();
+    return { ok: true };
+  }
+  
   /* ----- Volume (saved in localStorage) ----- */
   
   /* Read the saved volume. Falls back to the default if nothing is saved,
@@ -495,6 +671,7 @@
   });
   
   /* ---------- 8. Start the app ---------- */
+  state.playlists = loadPlaylists();   // saved playlists (or an empty list)
   setVolume(loadVolume());
   applySearch();   // reads the search box (some browsers restore its text after a
                    // reload), builds the queue, draws the list and the player bar
