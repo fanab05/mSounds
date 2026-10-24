@@ -8,7 +8,7 @@
     --text-dim: #b3b3b3;    /* secondary text (artist, duration) */
     --accent: #1db954;      /* green accent colour */
     --error: #ff6b6b;
-    --player-height: 80px;
+    --player-height: 96px;  /* taller than before: buttons + progress bar */
   }
   
   /* Make width/height include padding and border: easier to reason about */
@@ -125,9 +125,12 @@
     right: 0;
     bottom: 0;
     height: var(--player-height);
-    display: flex;
+    /* Grid = 3 columns: info (1 part) | controls (2 parts) | volume (1 part).
+       minmax(0, ...) lets long titles shrink and get "..." instead of
+       pushing the layout wider. */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
     gap: 16px;
     padding: 0 24px;
     background: var(--surface);
@@ -140,6 +143,21 @@
   
   .np-title {
     font-weight: 600;
+  }
+  
+  /* Middle column: buttons on top, progress bar below */
+  .player-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
   }
   
   /* Round play/pause button */
@@ -158,3 +176,146 @@
   .play-btn:hover {
     transform: scale(1.06);
   }
+  
+  /* Previous / next buttons: smaller, no background */
+  .ctrl-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+  
+  .ctrl-btn:hover:not(:disabled) {
+    color: var(--accent);
+  }
+  
+  /* A disabled button looks faded and is not clickable */
+  .ctrl-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  
+  /* ---------- Progress row: elapsed | bar | remaining ---------- */
+  .progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 520px;
+  }
+  
+  .time {
+    flex-shrink: 0;
+    width: 42px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;  /* all digits same width: numbers don't jitter */
+  }
+  
+  .time-elapsed {
+    text-align: right;
+  }
+  
+  .time-remaining {
+    text-align: left;
+  }
+  
+  .progress .range {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  /* ---------- Sliders (seek bar and volume) ----------
+     Browsers draw range inputs differently, so we style the track (the line)
+     and the thumb (the round handle) separately for Chrome/Safari (-webkit-)
+     and Firefox (-moz-).
+     app.js sets --fill (0% to 100%) so the left part of the line is green. */
+  .range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 16px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  
+  /* Chrome / Safari / Edge: the line */
+  .range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right,
+                var(--accent) var(--fill, 0%),
+                #4d4d4d var(--fill, 0%));
+  }
+  
+  /* Chrome / Safari / Edge: the handle (margin-top centres it on the line) */
+  .range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    margin-top: -4px;
+    border: none;
+    border-radius: 50%;
+    background: var(--text);
+  }
+  
+  /* Firefox: the line, the already-played part, and the handle */
+  .range::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: #4d4d4d;
+  }
+  
+  .range::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  
+  .range::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: none;
+    border-radius: 50%;
+    background: var(--text);
+  }
+  
+  /* Seek bar is disabled until a track has loaded */
+  .range:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  
+  /* ---------- Volume ---------- */
+  .volume {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  
+  .volume .range {
+    max-width: 120px;
+  }
+  
+  /* ---------- Small screens ----------
+     Phones use the device volume buttons, so hide the slider
+     and give the controls more room. */
+  @media (max-width: 700px) {
+    .player-bar {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+      padding: 0 12px;
+      gap: 12px;
+    }
+  
+    .volume {
+      display: none;
+    }
+  }
+  

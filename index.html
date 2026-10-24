@@ -25,14 +25,42 @@
     <ul id="track-list" class="track-list"></ul>
   </main>
 
-  <!-- Player bar, fixed at the bottom of the screen -->
+  <!-- Player bar, fixed at the bottom of the screen.
+       Three columns: track info | controls + progress | volume -->
   <footer class="player-bar">
+
+    <!-- Left: what is playing -->
     <div class="now-playing">
       <div id="np-title" class="np-title">Nothing playing</div>
       <div id="np-artist" class="np-artist">Pick a track</div>
     </div>
 
-    <button id="play-btn" class="play-btn" type="button" aria-label="Play">▶</button>
+    <!-- Middle: buttons on top, progress bar below -->
+    <div class="player-center">
+      <div class="controls">
+        <!-- &#9198; = previous symbol, &#9197; = next symbol.
+             &#xFE0E; asks the browser to draw it as plain text, not a coloured emoji -->
+        <button id="prev-btn" class="ctrl-btn" type="button" aria-label="Previous track" disabled>&#9198;&#xFE0E;</button>
+        <button id="play-btn" class="play-btn" type="button" aria-label="Play">▶</button>
+        <button id="next-btn" class="ctrl-btn" type="button" aria-label="Next track" disabled>&#9197;&#xFE0E;</button>
+      </div>
+
+      <div class="progress">
+        <span id="time-elapsed" class="time time-elapsed">0:00</span>
+        <!-- A slider counted in SECONDS. app.js sets the real max when the mp3 is ready.
+             step="any" lets it move smoothly instead of in whole steps. -->
+        <input id="seek-bar" class="range" type="range"
+               min="0" max="0" step="any" value="0" disabled aria-label="Seek">
+        <span id="time-remaining" class="time time-remaining">-0:00</span>
+      </div>
+    </div>
+
+    <!-- Right: volume (0 to 100) -->
+    <div class="volume">
+      <span class="volume-icon" aria-hidden="true">🔊</span>
+      <input id="volume-bar" class="range" type="range"
+             min="0" max="100" step="1" value="80" aria-label="Volume">
+    </div>
   </footer>
 
   <!-- Order matters: tracks.js defines TRACKS, app.js uses it.
