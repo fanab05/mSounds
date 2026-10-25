@@ -2,7 +2,7 @@
    CSS variables: change a colour here and it changes everywhere. */
    :root {
     --bg: #121212;          /* page background */
-    --surface: #181818;     /* header and player bar */
+    --surface: #181818;     /* header, sidebar and player bar */
     --row-hover: #2a2a2a;   /* track row on hover */
     --text: #ffffff;
     --text-dim: #b3b3b3;    /* secondary text (artist, duration) */
@@ -26,6 +26,12 @@
     padding-bottom: calc(var(--player-height) + 16px);
   }
   
+  /* Visible outline when you move with the keyboard (Tab) */
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  
   /* ---------- Header ---------- */
   .app-header {
     background: var(--surface);
@@ -38,15 +44,191 @@
     color: var(--accent);
   }
   
-  /* ---------- Main content ---------- */
-  .content {
-    max-width: 800px;
+  /* ---------- Layout: sidebar + main area ---------- */
+  .layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 1100px;
     margin: 0 auto;
+    padding: 0 8px;
+  }
+  
+  .content {
+    flex: 1;
+    min-width: 0;        /* lets long text shrink instead of widening the page */
     padding: 24px;
   }
   
-  .content h2 {
-    margin-top: 0;
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    flex: 0 0 240px;
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--surface);
+    border-radius: 8px;
+  }
+  
+  .side-heading {
+    margin: 20px 12px 8px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+  }
+  
+  .playlist-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .side-empty {
+    margin: 4px 12px;
+    font-size: 0.875rem;
+    color: var(--text-dim);
+  }
+  
+  /* Library entry and playlist entries share this look */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    border-radius: 6px;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  
+  .nav-item:hover {
+    background: var(--row-hover);
+    color: var(--text);
+  }
+  
+  /* The view you are looking at */
+  .nav-item.active {
+    background: var(--row-hover);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  
+  .nav-name {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .nav-count {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  
+  /* "New playlist" form */
+  .new-playlist {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  
+  .new-playlist input,
+  .rename-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    background: var(--row-hover);
+    color: var(--text);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font: inherit;
+  }
+  
+  .new-playlist input:focus,
+  .rename-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  
+  /* Small text buttons (Create, Rename, Delete, Save, Cancel) */
+  .btn {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    background: var(--row-hover);
+    color: var(--text);
+    border: none;
+    border-radius: 6px;
+    font: inherit;
+    cursor: pointer;
+  }
+  
+  .btn:hover {
+    background: #3a3a3a;
+  }
+  
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  
+  .btn-primary:hover {
+    background: #22d65f;
+  }
+  
+  .btn-danger:hover {
+    color: var(--error);
+  }
+  
+  /* ---------- Heading of the current view ---------- */
+  .view-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .view-title {
+    margin: 0;
+    min-width: 0;
+    font-size: 1.5rem;
+    overflow-wrap: anywhere;   /* a very long playlist name wraps instead of overflowing */
+  }
+  
+  .view-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Back button on the first row in playlist view */
+.view-back-row {
+  display: flex;
+  align-items: center;
+}
+
+/* Playlist name and actions on the second row */
+.view-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+  /* Inline rename: the input takes the place of the heading */
+  .rename-form {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+  }
+  
+  .rename-input {
+    font-size: 1.1rem;
   }
   
   /* ---------- Search box ---------- */
@@ -81,19 +263,26 @@
     cursor: pointer;
   }
   
-  /* "No tracks found" line */
+  /* "No tracks found" / "This playlist is empty" line */
   .no-results {
     margin: 16px 14px;
     color: var(--text-dim);
   }
   
-  /* Error / info message */
+  /* Error / info message (red by default) */
   .message {
     background: #2b1a1a;
     border-left: 4px solid var(--error);
     color: var(--error);
     padding: 10px 14px;
     border-radius: 4px;
+  }
+  
+  /* Confirmation message (green), e.g. "Added ... to ..." */
+  .message.message-ok {
+    background: #14261b;
+    border-left-color: var(--accent);
+    color: #7ee2a0;
   }
   
   /* The "hidden" attribute normally hides an element, but a CSS "display"
@@ -109,13 +298,30 @@
     padding: 0;
   }
   
-  /* Each row is a button, so it works with mouse AND keyboard (Tab + Enter) */
-  .track-item {
+  /* One row = main play button + one action button, side by side.
+     position: relative lets the "+" menu be placed under its own row. */
+  .track-row {
+    position: relative;
     display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 6px;
+  }
+  
+  .track-row:hover,
+  .track-row:focus-within {
+    background: var(--row-hover);
+  }
+  
+  /* The big button: click it to play. It is a button, so it works with
+     mouse AND keyboard (Tab + Enter). */
+  .track-main {
+    display: flex;
+    flex: 1;
+    min-width: 0;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    width: 100%;
     padding: 10px 14px;
     background: transparent;
     color: inherit;
@@ -126,13 +332,37 @@
     cursor: pointer;
   }
   
-  .track-item:hover {
-    background: var(--row-hover);
+  /* The track that is currently loaded (in any view) */
+  .track-row.active .track-title {
+    color: var(--accent);
   }
   
-  /* The track that is currently loaded */
-  .track-item.active .track-title {
+  /* The small button on the right: "+" (library) or "Remove" (playlist) */
+  .track-action {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    margin-right: 8px;
+    padding: 0;
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    border-radius: 50%;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  
+  .track-action:hover {
     color: var(--accent);
+  }
+  
+  /* The "Remove" version is a text button */
+  .track-action-text {
+    width: auto;
+    padding: 0 12px;
+    border-radius: 18px;
+    font-size: 0.875rem;
   }
   
   .track-info {
@@ -154,6 +384,52 @@
   .np-artist {
     color: var(--text-dim);
     font-size: 0.875rem;
+  }
+  
+  /* ---------- "Add to playlist" menu ----------
+     app.js adds it inside the row; absolute = it floats over the list. */
+  .menu {
+    position: absolute;
+    top: 100%;
+    right: 8px;
+    z-index: 20;
+    min-width: 200px;
+    max-width: 280px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+    background: #282828;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  }
+  
+  .menu-item {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    color: var(--text);
+    border: none;
+    border-radius: 4px;
+    font: inherit;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  
+  .menu-item:hover,
+  .menu-item:focus-visible {
+    background: #3a3a3a;
+    color: var(--accent);
+  }
+  
+  .menu-empty {
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    color: var(--text-dim);
   }
   
   /* ---------- Player bar ---------- */
@@ -344,7 +620,8 @@
   
   /* ---------- Small screens ----------
      Phones use the device volume buttons, so hide the slider
-     and give the controls more room. */
+     and give the controls more room.
+     The sidebar becomes a horizontal strip above the list. */
   @media (max-width: 700px) {
     .player-bar {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
@@ -355,5 +632,79 @@
     .volume {
       display: none;
     }
-  }
   
+    .layout {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 0;
+    }
+  
+    .sidebar {
+      flex: none;
+      margin: 12px 12px 0;
+      padding: 10px;
+    }
+  
+    /* Library + playlists in one scrollable row of "pills" */
+    .side-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 4px;
+      overflow-x: auto;
+    }
+  
+    .side-heading {
+      display: none;
+    }
+  
+    .playlist-nav {
+      display: flex;
+      gap: 8px;
+    }
+  
+    .side-empty {
+      margin: 0;
+      white-space: nowrap;
+    }
+  
+    .nav-item {
+      flex-shrink: 0;
+      width: auto;
+      background: var(--row-hover);
+      border-radius: 16px;
+      white-space: nowrap;
+    }
+  
+    .nav-name {
+      max-width: 140px;
+    }
+  
+    .content {
+      padding: 16px 12px;
+    }
+  }
+
+  /* Keep the back button on its own row */
+.view-header:has(.view-back-row) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* First row: back to Library */
+.view-back-row {
+  display: flex;
+  align-items: center;
+}
+
+/* Second row: Study + Rename + Delete */
+.view-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}

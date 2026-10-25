@@ -13,27 +13,56 @@
     <h1>mSounds</h1>
   </header>
 
-  <!-- Main area: the library list -->
-  <main class="content">
-    <h2>Library</h2>
+  <!-- Two columns: sidebar | main area.
+       On narrow screens the sidebar becomes a strip above the list. -->
+  <div class="layout">
 
-    <!-- Search box. type="search" gives a clear (x) button in most browsers.
-         app.js filters the list on every "input" event (every keystroke). -->
-    <input id="search-input" class="search" type="search"
-           placeholder="Search by title or artist"
-           aria-label="Search tracks" autocomplete="off">
+    <!-- Sidebar: Library entry, playlists, "New playlist" form.
+         app.js fills the playlist list and marks the active item. -->
+    <aside class="sidebar">
+      <nav class="side-nav" aria-label="Library and playlists">
+        <button id="nav-library" class="nav-item" type="button">Library</button>
+        <h2 class="side-heading">Playlists</h2>
+        <ul id="playlist-nav" class="playlist-nav"></ul>
+        <p id="no-playlists" class="side-empty">No playlists yet</p>
+      </nav>
 
-    <!-- Used to show errors such as "file could not be loaded".
-         role="alert" makes screen readers announce it. -->
-    <p id="message" class="message" role="alert" hidden></p>
+      <!-- A real form: pressing Enter in the box also creates the playlist -->
+      <form id="new-playlist-form" class="new-playlist">
+        <input id="new-playlist-input" type="text" maxlength="60"
+               placeholder="New playlist" aria-label="New playlist name"
+               autocomplete="off">
+        <button class="btn btn-primary" type="submit">Create</button>
+      </form>
+    </aside>
 
-    <!-- app.js fills this list with one <li> per track that matches the search -->
-    <ul id="track-list" class="track-list"></ul>
+    <!-- Main area: heading, search (library only), list -->
+    <main class="content">
 
-    <!-- Shown by app.js when the search matches nothing.
-         aria-live="polite" lets screen readers announce it. -->
-    <p id="no-results" class="no-results" aria-live="polite" hidden>No tracks found</p>
-  </main>
+      <!-- app.js draws the heading here: "Library", or the playlist name
+           with Rename / Delete buttons (or the inline rename form) -->
+      <div id="view-header" class="view-header"></div>
+
+      <!-- Search box. type="search" gives a clear (x) button in most browsers.
+           app.js filters the list on every "input" event (every keystroke).
+           It is hidden in a playlist view: search only applies to the library. -->
+      <input id="search-input" class="search" type="search"
+             placeholder="Search by title or artist"
+             aria-label="Search tracks" autocomplete="off">
+
+      <!-- Used for errors AND short confirmations ("Added ...").
+           role="alert" makes screen readers announce it. -->
+      <p id="message" class="message" role="alert" hidden></p>
+
+      <!-- app.js fills this list with one <li> per track that is shown -->
+      <ul id="track-list" class="track-list"></ul>
+
+      <!-- Shown by app.js when the list is empty. The text depends on the view:
+           "No tracks found" (library) or "This playlist is empty".
+           aria-live="polite" lets screen readers announce it. -->
+      <p id="no-results" class="no-results" aria-live="polite" hidden>No tracks found</p>
+    </main>
+  </div>
 
   <!-- Player bar, fixed at the bottom of the screen.
        Three columns: track info | controls + progress | volume -->

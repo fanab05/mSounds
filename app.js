@@ -1,5 +1,5 @@
 /* =====================================================
-   mSounds: app.js  (steps 1 to 10)
+   mSounds: app.js  (steps 1 to 11)
    - Show the library
    - Click a track to play it
    - Play/pause button
@@ -8,7 +8,9 @@
    - Progress bar with elapsed and remaining time
    - Volume slider (remembered in localStorage)
    - Search by title or artist (the queue follows the shown list)
-   - Playlists: data layer + saving (no visible UI yet)
+   - Playlists: data layer + saving
+   - Playlists: sidebar, playlist view, rename, delete, add, remove
+   - "← Library" back button in the playlist heading
    ===================================================== */
 
 /* ---------- 1. State ----------
@@ -18,9 +20,12 @@
     currentTrackId: null,  // id of the loaded track (null = none yet)
     isPlaying: false,      // true while audio is playing
     searchText: "",        // what the user typed in the search box
+    view: "library",       // what is shown: "library" or a playlist id
+    renaming: false,       // true while the inline rename box is open
+    menu: null,            // the open "+" menu: { el, trigger }, or null
     queue: TRACKS.map(function (track) {
       return track.id;     // the queue = ids of the tracks currently SHOWN, in order.
-    }),                    // At start that is all tracks; search changes it.
+    }),                    // At start that is all tracks; search and views change it.
     playlists: [],         // all playlists: { id, name, trackIds: [] }.
                            // Filled from localStorage at start-up (see section 8).
     seekTarget: null       // null = user is NOT using the seek bar.
@@ -33,6 +38,7 @@
   const VOLUME_KEY = "msounds.volume";        // name used in localStorage
   const PLAYLISTS_KEY = "msounds.playlists";  // name used in localStorage
   const DEFAULT_VOLUME = 0.8;                 // 0 (silent) to 1 (full)
+  const CONFIRM_MS = 3500;                    // how long a green confirmation stays visible
   
   /* One audio player for the whole app. It is not added to the page,
      we only control it from JavaScript. We reuse this one element for every
@@ -41,19 +47,25 @@
   
   /* ---------- 2. Grab the HTML elements we need ----------
      Done once at the top so we don't search the page again and again. */
-  const trackListEl     = document.getElementById("track-list");
-  const searchInputEl   = document.getElementById("search-input");
-  const noResultsEl     = document.getElementById("no-results");
-  const messageEl       = document.getElementById("message");
-  const npTitleEl       = document.getElementById("np-title");
-  const npArtistEl      = document.getElementById("np-artist");
-  const playBtnEl       = document.getElementById("play-btn");
-  const prevBtnEl       = document.getElementById("prev-btn");
-  const nextBtnEl       = document.getElementById("next-btn");
-  const seekBarEl       = document.getElementById("seek-bar");
-  const timeElapsedEl   = document.getElementById("time-elapsed");
-  const timeRemainingEl = document.getElementById("time-remaining");
-  const volumeBarEl     = document.getElementById("volume-bar");
+  const trackListEl        = document.getElementById("track-list");
+  const searchInputEl      = document.getElementById("search-input");
+  const noResultsEl        = document.getElementById("no-results");
+  const messageEl          = document.getElementById("message");
+  const viewHeaderEl       = document.getElementById("view-header");
+  const libraryNavEl       = document.getElementById("nav-library");
+  const playlistNavEl      = document.getElementById("playlist-nav");
+  const noPlaylistsEl      = document.getElementById("no-playlists");
+  const newPlaylistFormEl  = document.getElementById("new-playlist-form");
+  const newPlaylistInputEl = document.getElementById("new-playlist-input");
+  const npTitleEl          = document.getElementById("np-title");
+  const npArtistEl         = document.getElementById("np-artist");
+  const playBtnEl          = document.getElementById("play-btn");
+  const prevBtnEl          = document.getElementById("prev-btn");
+  const nextBtnEl          = document.getElementById("next-btn");
+  const seekBarEl          = document.getElementById("seek-bar");
+  const timeElapsedEl      = document.getElementById("time-elapsed");
+  const timeRemainingEl    = document.getElementById("time-remaining");
+  const volumeBarEl        = document.getElementById("volume-bar");
   
   /* ---------- 3. Helper functions ---------- */
   
@@ -72,12 +84,25 @@
     return minutes + ":" + String(seconds).padStart(2, "0");
   }
   
+  /* Timer id of the "hide the confirmation" countdown (null = none running) */
+  let messageTimer = null;
+  
   /* Show or hide the message box.
-     Pass text to show it, or nothing to hide it. */
-  function showMessage(text) {
+     showMessage("text")        red message (errors), stays until replaced
+     showMessage("text", "ok")  green confirmation, hides itself after a few seconds
+     showMessage("")            hide the box */
+  function showMessage(text, kind) {
+    clearTimeout(messageTimer);   // a newer message cancels the old countdown
+  
     if (text) {
       messageEl.textContent = text;  // textContent: safe, text only
+      messageEl.classList.toggle("message-ok", kind === "ok");
       messageEl.hidden = false;
+      if (kind === "ok") {
+        messageTimer = setTimeout(function () {
+          showMessage("");
+        }, CONFIRM_MS);
+      }
     } else {
       messageEl.textContent = "";
       messageEl.hidden = true;
@@ -93,10 +118,20 @@
     return text.trim().replace(/\s+/g, " ").toLowerCase();
   }
   
-  /* The tracks that match the current search, in library order.
-     An empty search matches everything. A track matches when the search
-     text appears in its title OR in its artist. */
+  /* The tracks that are SHOWN right now, in the order they are shown.
+     - Playlist view: the playlist's tracks in saved order (the search is ignored).
+     - Library view: all tracks that match the search, in library order.
+       An empty search matches everything. A track matches when the search
+       text appears in its title OR in its artist. */
   function getVisibleTracks() {
+    if (state.view !== "library") {
+      const playlist = getPlaylistById(state.view);
+      if (!playlist) return [];
+      return playlist.trackIds
+        .map(function (id) { return getTrackById(id); })
+        .filter(function (track) { return track !== undefined; });
+    }
+  
     const query = normalizeText(state.searchText);
     if (query === "") return TRACKS;
   
@@ -108,7 +143,8 @@
   
   /* Where is the current track in the queue? 0 = first, -1 = not in the queue.
      We look it up each time instead of storing it, so it can never be out of date.
-     -1 also happens when the playing track is hidden by the search. */
+     -1 also happens when the playing track is not in the shown list
+     (hidden by the search, or not in the playlist you are viewing). */
   function getQueueIndex() {
     return state.queue.indexOf(state.currentTrackId);
   }
@@ -127,7 +163,7 @@
   }
   
   /* The id of the track "Next" should play (call only if hasNextTrack() is true).
-     Playing track hidden by the search -> first track of the shown list. */
+     Playing track not in the shown list -> first track of the shown list. */
   function getNextTrackId() {
     const index = getQueueIndex();
     return index === -1 ? state.queue[0] : state.queue[index + 1];
@@ -165,22 +201,32 @@
   
   /* ---------- 4. Rendering (drawing the page from the data) ---------- */
   
-  /* Build the library list: one row per VISIBLE track.
-     If the search matches nothing, show "No tracks found" instead. */
-  function renderLibrary() {
+  /* Build the list of the current view: one row per SHOWN track.
+     Each row has TWO sibling buttons (never a button inside a button):
+       <li class="track-row">
+         <button class="track-main">  title, artist, duration  (click = play)
+         <button class="track-action"> "+" in the library, "Remove" in a playlist
+       </li>
+     If the list is empty, show a message instead. */
+  function renderTrackList() {
+    closeMenu();   // an open "+" menu belongs to a row that is about to be replaced
+  
+    const inLibrary = (state.view === "library");
     const tracks = getVisibleTracks();
   
-    trackListEl.textContent = "";          // empty the list first
-    noResultsEl.hidden = tracks.length > 0; // show the message only when empty
+    trackListEl.textContent = "";            // empty the list first
+    noResultsEl.textContent = inLibrary ? "No tracks found" : "This playlist is empty";
+    noResultsEl.hidden = tracks.length > 0;  // show the message only when empty
   
     tracks.forEach(function (track) {
-      // <li><button class="track-item"> ... </button></li>
       const li = document.createElement("li");
+      li.className = "track-row";
+      li.dataset.id = track.id;  // remember which track this row is
   
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "track-item";
-      button.dataset.id = track.id;  // remember which track this row is
+      // --- Main button: title, artist, duration. Clicking it plays the track ---
+      const main = document.createElement("button");
+      main.type = "button";
+      main.className = "track-main";
   
       // Left side: title and artist
       const info = document.createElement("div");
@@ -201,14 +247,42 @@
       duration.className = "track-duration";
       duration.textContent = formatTime(track.duration);
   
-      button.append(info, duration);
+      main.append(info, duration);
   
-      // Clicking the row plays this track
-      button.addEventListener("click", function () {
+      main.addEventListener("click", function () {
         handleTrackClick(track.id);
       });
   
-      li.appendChild(button);
+      // --- Action button: next to the main button, not inside it ---
+      const action = document.createElement("button");
+      action.type = "button";
+      action.className = "track-action";
+  
+      if (inLibrary) {
+        // "+" opens the "add to playlist" menu
+        action.textContent = "+";
+        action.title = "Add to playlist";
+        action.setAttribute("aria-label", 'Add "' + track.title + '" to a playlist');
+        action.setAttribute("aria-haspopup", "true");
+        action.setAttribute("aria-expanded", "false");
+        action.addEventListener("click", function () {
+          if (state.menu && state.menu.trigger === action) {
+            closeMenu(true);                  // second click on the same "+" closes it
+          } else {
+            openMenu(track, action, li);
+          }
+        });
+      } else {
+        // "Remove" takes the track out of the playlist you are viewing
+        action.classList.add("track-action-text");
+        action.textContent = "Remove";
+        action.setAttribute("aria-label", 'Remove "' + track.title + '" from this playlist');
+        action.addEventListener("click", function () {
+          handleRemoveTrack(track.id);
+        });
+      }
+  
+      li.append(main, action);
       trackListEl.appendChild(li);
     });
   }
@@ -275,14 +349,14 @@
     }
   
     // Previous: needs a loaded track (it restarts the track when there is
-    // nothing before it in the queue, even if the search hides the track).
+    // nothing before it in the queue, even if the track is not in the shown list).
     // Next: see hasNextTrack().
     prevBtnEl.disabled = (state.currentTrackId === null);
     nextBtnEl.disabled = !hasNextTrack();
   
     // Highlight the row of the current track, un-highlight the others.
-    // (If the track is hidden by the search, no row is highlighted.)
-    const rows = trackListEl.querySelectorAll(".track-item");
+    // (If the track is not in the shown list, no row is highlighted.)
+    const rows = trackListEl.querySelectorAll(".track-row");
     rows.forEach(function (row) {
       row.classList.toggle("active", row.dataset.id === state.currentTrackId);
     });
@@ -344,7 +418,7 @@
   
   /* Go to the next track in the queue (the shown list). Does nothing when
      there is no next track (the button is disabled there too, this is just
-     a safety net). If the playing track is hidden by the search, this starts
+     a safety net). If the playing track is not in the shown list, this starts
      the shown list from its first track. */
   function playNext() {
     if (!hasNextTrack()) return;
@@ -353,12 +427,12 @@
   
   /* Previous button:
      - nothing before this track in the queue (first track, or the track is
-       hidden by the search), or 3+ seconds into a track: restart this track
+       not in the shown list), or 3+ seconds into a track: restart this track
      - otherwise: go back to the previous track */
   function playPrevious() {
     if (state.currentTrackId === null) return;  // nothing loaded
   
-    const index = getQueueIndex();   // -1 (hidden by search) or 0 (first): nothing before it
+    const index = getQueueIndex();   // -1 (not in shown list) or 0 (first): nothing before it
   
     if (index <= 0 || audio.currentTime >= RESTART_AFTER) {
       audio.currentTime = 0;   // restart (play/pause state is not changed)
@@ -381,17 +455,51 @@
     renderProgress();
   }
   
-  /* ----- Search ----- */
+  /* ----- Keeping the queue and the screen in step -----
+     None of these functions touch `audio`: changing the view, or adding,
+     removing, renaming or deleting, never stops or restarts the music. */
   
-  /* Read the search box, rebuild the queue from the shown tracks, redraw.
-     Does NOT touch the audio: filtering never stops or restarts a track. */
-  function applySearch() {
-    state.searchText = searchInputEl.value;
+  /* The queue is always the list that is shown. Call after anything that
+     changes which tracks are shown. */
+  function rebuildQueue() {
     state.queue = getVisibleTracks().map(function (track) {
       return track.id;
     });
-    renderLibrary();   // draws the matching rows (or "No tracks found")
-    renderPlayer();    // re-applies the highlight and the Next/Previous state
+  }
+  
+  /* Rebuild the queue, then redraw the list and the player bar. */
+  function refreshList() {
+    rebuildQueue();
+    renderTrackList();   // draws the rows (or the "empty" message)
+    renderPlayer();      // re-applies the highlight and the Next/Previous state
+  }
+  
+  /* Redraw everything that depends on the view. */
+  function refreshView() {
+    renderSidebar();
+    renderViewHeader();
+    refreshList();
+  }
+  
+  /* Switch between the library and a playlist.
+     An unknown id falls back to the library. */
+  function setView(view) {
+    if (view !== "library" && !getPlaylistById(view)) {
+      view = "library";
+    }
+    state.view = view;
+    state.renaming = false;   // a half-open rename box is dropped
+    refreshView();
+  }
+  
+  /* ----- Search ----- */
+  
+  /* Read the search box, rebuild the queue from the shown tracks, redraw.
+     Does NOT touch the audio: filtering never stops or restarts a track.
+     (The box is only visible in the library view.) */
+  function applySearch() {
+    state.searchText = searchInputEl.value;
+    refreshList();
   }
   
   /* ----- Playlists: saving and loading (localStorage) ----- */
@@ -566,6 +674,338 @@
     return { ok: true };
   }
   
+  /* ----- Playlists: sidebar and heading (drawing) ----- */
+  
+  /* Draw the sidebar: the Library entry and one entry per playlist
+     (name + number of tracks). The entry of the current view is highlighted. */
+  function renderSidebar() {
+    const inLibrary = (state.view === "library");
+    libraryNavEl.classList.toggle("active", inLibrary);
+    if (inLibrary) {
+      libraryNavEl.setAttribute("aria-current", "page");
+    } else {
+      libraryNavEl.removeAttribute("aria-current");
+    }
+  
+    playlistNavEl.textContent = "";
+    noPlaylistsEl.hidden = state.playlists.length > 0;
+  
+    state.playlists.forEach(function (playlist) {
+      const count = playlist.trackIds.length;
+      const isActive = (state.view === playlist.id);
+  
+      const li = document.createElement("li");
+  
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "nav-item";
+      button.classList.toggle("active", isActive);
+      if (isActive) button.setAttribute("aria-current", "page");
+      // Screen readers read this instead of "Study 3"
+      button.setAttribute("aria-label",
+        playlist.name + ", " + count + (count === 1 ? " track" : " tracks"));
+  
+      const name = document.createElement("span");
+      name.className = "nav-name";
+      name.textContent = playlist.name;     // textContent, never innerHTML
+  
+      const badge = document.createElement("span");
+      badge.className = "nav-count";
+      badge.textContent = String(count);
+  
+      button.append(name, badge);
+      button.addEventListener("click", function () {
+        setView(playlist.id);
+      });
+  
+      li.appendChild(button);
+      playlistNavEl.appendChild(li);
+    });
+  }
+  
+  /* Draw the heading of the current view:
+     - library: "Library" (and the search box is visible)
+     - playlist: a "← Library" back button, its name, and Rename and Delete
+       buttons (search box hidden)
+     - playlist while renaming: an input with Save and Cancel instead of the name */
+  function renderViewHeader() {
+    viewHeaderEl.textContent = "";
+  
+    const playlist = (state.view === "library") ? undefined : getPlaylistById(state.view);
+    searchInputEl.hidden = Boolean(playlist);   // search only applies to the library
+  
+    if (!playlist) {
+      const heading = document.createElement("h2");
+      heading.className = "view-title";
+      heading.textContent = "Library";
+      viewHeaderEl.appendChild(heading);
+      return;
+    }
+  
+    if (state.renaming) {
+      const form = document.createElement("form");
+      form.className = "rename-form";
+  
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "rename-input";
+      input.maxLength = 60;
+      input.value = playlist.name;
+      input.setAttribute("aria-label", "Playlist name");
+  
+      const save = document.createElement("button");
+      save.type = "submit";
+      save.className = "btn btn-primary";
+      save.textContent = "Save";
+  
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn";
+      cancel.textContent = "Cancel";
+  
+      form.append(input, save, cancel);
+      viewHeaderEl.appendChild(form);
+  
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        handleRenameSubmit(playlist.id, input);
+      });
+      cancel.addEventListener("click", cancelRename);
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") cancelRename();
+      });
+  
+      input.focus();     // the box is ready to type in
+      input.select();
+      return;
+    }
+  
+    const heading = document.createElement("h2");
+    heading.className = "view-title";
+    heading.textContent = playlist.name;     // textContent, never innerHTML
+  
+    const actions = document.createElement("div");
+    actions.className = "view-actions";
+  
+    const renameBtn = document.createElement("button");
+    renameBtn.type = "button";
+    renameBtn.className = "btn rename-btn";
+    renameBtn.textContent = "Rename";
+    renameBtn.setAttribute("aria-label", 'Rename playlist "' + playlist.name + '"');
+    renameBtn.addEventListener("click", function () {
+      state.renaming = true;
+      renderViewHeader();
+    });
+  
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "btn btn-danger";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.setAttribute("aria-label", 'Delete playlist "' + playlist.name + '"');
+    deleteBtn.addEventListener("click", function () {
+      handleDeletePlaylist(playlist.id);
+    });
+  
+    actions.append(renameBtn, deleteBtn);
+  
+    // "Back" button: a clear way out of the playlist, to the library
+    const backBtn = document.createElement("button");
+    backBtn.type = "button";
+    backBtn.className = "btn";
+    backBtn.textContent = "← Library";
+    backBtn.setAttribute("aria-label", "Back to library");
+    backBtn.addEventListener("click", function () {
+      setView("library");
+    });
+  
+    // First row: back button
+    const backRow = document.createElement("div");
+    backRow.className = "view-back-row";
+    backRow.appendChild(backBtn);
+
+    // Second row: playlist name, Rename and Delete
+    const titleRow = document.createElement("div");
+    titleRow.className = "view-title-row";
+    titleRow.append(heading, actions);
+
+    viewHeaderEl.append(backRow, titleRow);
+  }
+  
+  /* ----- Playlists: actions (what the buttons do) -----
+     Pattern: call a data function, show its reason if it failed,
+     then redraw. The audio is never touched. */
+  
+  /* Put the keyboard focus back on the Rename button (after Save / Cancel) */
+  function focusRenameButton() {
+    const button = viewHeaderEl.querySelector(".rename-btn");
+    if (button) button.focus();
+  }
+  
+  /* Cancel the inline rename: nothing is saved */
+  function cancelRename() {
+    state.renaming = false;
+    renderViewHeader();
+    focusRenameButton();
+  }
+  
+  /* Save the new name from the inline rename box.
+     An empty name is rejected: the reason is shown and the box stays open. */
+  function handleRenameSubmit(playlistId, input) {
+    const result = renamePlaylist(playlistId, input.value);
+    if (!result.ok) {
+      showMessage(result.reason);
+      input.focus();
+      return;
+    }
+  
+    state.renaming = false;
+    showMessage("Playlist renamed.", "ok");
+    renderSidebar();        // the new name in the sidebar
+    renderViewHeader();     // the new name as heading
+    focusRenameButton();
+  }
+  
+  /* Delete a playlist after confirm().
+     If it is the playlist we are viewing, go back to the library.
+     Audio is not touched, so a track from the playlist keeps playing. */
+  function handleDeletePlaylist(playlistId) {
+    const playlist = getPlaylistById(playlistId);
+    if (!playlist) return;
+  
+    const name = playlist.name;
+    if (!window.confirm('Delete the playlist "' + name + '"?\nThe tracks stay in your library.')) {
+      return;   // user pressed Cancel
+    }
+  
+    const result = deletePlaylist(playlistId);
+    if (!result.ok) {
+      showMessage(result.reason);
+      return;
+    }
+  
+    if (state.view === playlistId) {
+      setView("library");       // the viewed playlist is gone: show the library
+      libraryNavEl.focus();     // keep keyboard users oriented
+    } else {
+      renderSidebar();
+    }
+    showMessage('Playlist "' + name + '" deleted.', "ok");
+  }
+  
+  /* Remove a track from the playlist we are viewing.
+     The queue is rebuilt without it. Audio is not touched: if that track is
+     playing, it keeps playing (it is just no longer in the shown list). */
+  function handleRemoveTrack(trackId) {
+    const playlist = getPlaylistById(state.view);
+    if (!playlist) return;
+  
+    const track = getTrackById(trackId);
+    const rowIndex = playlist.trackIds.indexOf(trackId);
+  
+    const result = removeTrackFromPlaylist(playlist.id, trackId);
+    if (!result.ok) {
+      showMessage(result.reason);
+      return;
+    }
+  
+    showMessage('Removed "' + (track ? track.title : "track") + '" from "' + playlist.name + '".', "ok");
+    refreshList();     // new queue + list + player bar (the heading is not redrawn)
+    renderSidebar();   // the track count
+  
+    // The row we clicked is gone: move focus to the row that took its place
+    const buttons = trackListEl.querySelectorAll(".track-action");
+    if (buttons.length > 0) {
+      buttons[Math.min(rowIndex, buttons.length - 1)].focus();
+    } else {
+      focusRenameButton();
+    }
+  }
+  
+  /* ----- The "+" menu in the library (add a track to a playlist) ----- */
+  
+  /* Close the menu if one is open. returnFocus = true puts the keyboard
+     focus back on the "+" button that opened it. */
+  function closeMenu(returnFocus) {
+    if (!state.menu) return;
+  
+    const menu = state.menu;
+    state.menu = null;                       // set first, so nothing re-enters
+    menu.el.remove();
+    menu.trigger.setAttribute("aria-expanded", "false");
+    if (returnFocus) menu.trigger.focus();
+  }
+  
+  /* Open a small menu under the row, listing all playlists.
+     Closing: choose a playlist, press Escape, press Tab, click outside. */
+  function openMenu(track, trigger, row) {
+    closeMenu();   // only one menu at a time
+  
+    const menu = document.createElement("div");
+    menu.className = "menu";
+  
+    if (state.playlists.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "menu-empty";
+      empty.textContent = "You have no playlists yet. Create one in the sidebar.";
+      menu.appendChild(empty);
+    } else {
+      menu.setAttribute("role", "menu");
+      menu.setAttribute("aria-label", 'Add "' + track.title + '" to playlist');
+  
+      state.playlists.forEach(function (playlist) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "menu-item";
+        item.setAttribute("role", "menuitem");
+        item.textContent = playlist.name;    // textContent, never innerHTML
+        item.addEventListener("click", function () {
+          handleAddToPlaylist(playlist.id, track.id);
+        });
+        menu.appendChild(item);
+      });
+    }
+  
+    // Keyboard inside the menu: arrows move, Tab closes (and continues from the "+")
+    menu.addEventListener("keydown", function (event) {
+      if (event.key === "Tab") {
+        closeMenu(true);   // focus goes back to "+", then Tab moves on from there
+        return;            // (no preventDefault: the Tab itself still happens)
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        const items = Array.from(menu.querySelectorAll(".menu-item"));
+        if (items.length === 0) return;
+        const current = items.indexOf(document.activeElement);
+        const step = (event.key === "ArrowDown") ? 1 : -1;
+        items[(current + step + items.length) % items.length].focus();
+        event.preventDefault();   // do not scroll the page
+      }
+    });
+  
+    row.appendChild(menu);
+    trigger.setAttribute("aria-expanded", "true");
+    state.menu = { el: menu, trigger: trigger };
+  
+    const first = menu.querySelector(".menu-item");
+    if (first) first.focus();   // keyboard users land on the first playlist
+  }
+  
+  /* A playlist was chosen in the menu: add the track and tell the user. */
+  function handleAddToPlaylist(playlistId, trackId) {
+    const playlist = getPlaylistById(playlistId);
+    const track = getTrackById(trackId);
+    const result = addTrackToPlaylist(playlistId, trackId);
+  
+    closeMenu(true);
+  
+    const playlistName = playlist ? playlist.name : "playlist";
+    if (result.ok) {
+      showMessage('Added "' + (track ? track.title : "track") + '" to "' + playlistName + '".', "ok");
+    } else {
+      showMessage(playlistName + ": " + result.reason);   // e.g. "already in the playlist"
+    }
+    renderSidebar();   // the track count may have changed
+  }
+  
   /* ----- Volume (saved in localStorage) ----- */
   
   /* Read the saved volume. Falls back to the default if nothing is saved,
@@ -646,6 +1086,42 @@
      and the clear (x) button. */
   searchInputEl.addEventListener("input", applySearch);
   
+  /* Sidebar: the Library entry (playlist entries are wired in renderSidebar) */
+  libraryNavEl.addEventListener("click", function () {
+    setView("library");
+  });
+  
+  /* Sidebar: "New playlist" form. Success opens the new playlist;
+     failure shows the reason in the message box. */
+  newPlaylistFormEl.addEventListener("submit", function (event) {
+    event.preventDefault();   // do not reload the page
+  
+    const result = createPlaylist(newPlaylistInputEl.value);
+    if (!result.ok) {
+      showMessage(result.reason);
+      newPlaylistInputEl.focus();
+      return;
+    }
+  
+    newPlaylistInputEl.value = "";
+    setView(result.id);       // open the new playlist
+    showMessage('Playlist "' + getPlaylistById(result.id).name + '" created.', "ok");
+  });
+  
+  /* "+" menu: close it on Escape (focus returns to the "+" button)
+     and on a click anywhere outside the menu and its "+" button. */
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && state.menu) {
+      closeMenu(true);
+    }
+  });
+  document.addEventListener("click", function (event) {
+    if (!state.menu) return;
+    if (state.menu.el.contains(event.target)) return;       // click inside the menu
+    if (state.menu.trigger.contains(event.target)) return;  // the "+" handles itself
+    closeMenu();
+  });
+  
   /* Seek bar.
      "input"  = fires continuously while the thumb moves (also on a click or arrow key).
                 We only PREVIEW: remember the target and update the time labels.
@@ -673,5 +1149,7 @@
   /* ---------- 8. Start the app ---------- */
   state.playlists = loadPlaylists();   // saved playlists (or an empty list)
   setVolume(loadVolume());
+  renderSidebar();      // Library + playlists
+  renderViewHeader();   // "Library" heading, search box visible
   applySearch();   // reads the search box (some browsers restore its text after a
                    // reload), builds the queue, draws the list and the player bar
