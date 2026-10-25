@@ -80,3 +80,13 @@ What the AI gave: Updated app.js with "state.playlists", five data functions tha
 - Results: All checks behaved as expected. The empty name was rejected, the duplicate and unknown tracks were rejected with a reason, the playlists were still there after a reload, and the bad track ids were removed when loading (the playlist ended with 2 valid ids insted of 4).
 - Problems found: No bugs in the code. 
 - Next: Playlists UI (sidebar, view a playlist, add/remove/rename/delete)
+
+## Entry 8 - Playlists, part B (user interface)
+- Goal: Add the playlist UI on top of the tested data layer: sidebar, playlist view, add/remove tracks, rename and delete.
+- My prompt: Pasted my current files and listed my decisions: one view at a time, the queue is the list currently shown, switching views or editing playlists never stops the audio. I warned that a button must not be placed inside a button and asked how three edhe cases are handled (deleting the viewed playlist, removing the playing track, the queue in each view). I also asked for test checklist. 
+- What the AI gave: Updated index.html, style.css and app.js, with a sidebar, an inline rename box, a "+" menu, and rows rebuilt as two sibling buttons.
+- How i tested: [number of points] from the AI´s 35-point checklist, starting with a clean localStorage and finishing with regression test of the player.
+- Results: All checks behaved as expected. 
+- Problems found: None, just a small layout change for the going back to the library button.
+- Usability issue found by testing: Inside a playlist the only way back was the "Library" entry in the sidebar, whick looked like plain text, so there was no obvious way out of the playlist. I added a visible "<-- Library" button in the playlist heading (one change in renderViewHeader()) and re - tested. 
+- Known limitation: After removing the playing track from the viewed playlist, Next goes to the playlist´s first track, not to the one after it. This follows my rule for a playing track that is not in the shown list. 
