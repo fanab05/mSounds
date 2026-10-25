@@ -1,5 +1,32 @@
 # mSounds
-Music player prototype inspired by Spotify. Built with AI (Claude) for DAVE3625 MA3
+
+A music player web app inspired by Spotify, built with AI (Claude) for Mandatory Assignment 3 (Vibe Coding) in DAVE3625. It is my own prototype and is not affiliated with Spotify. It used no Spotify code, name or logo.
+
+** Live demo:** https://fanab05.github.io/mSounds/
+
+## Purpose
+To explore how generative AI can turn an idea into a working app, and how i must plan, test and correct the AI´s code myself.
+
+## Feature
+1. **Library with search:** search by title or artist, case - insensitive.
+2. **L Player:** play/pause, next/previous, auto - advance, a seek bar with elapsed and remaining time, and a volume slider that is remembered.
+3. **Playlists:** create, rename, delete, add and remove tracks. They are saved in the borwser (localStorage).
+
+## How to run
+No installation. Open the live demo, or open 'index.html' in a browser.
+
+## How i used AI
+I used Claude to brainstorm, plan, generate code, test and improve the app. I wrote the decisions myself (the features, the queue rule, the handling of edge cases) and tested each step before the next. The full process is in 'AI_LOG.md", and the plan is in 'PLAN.md'.
+
+## Testing and what i fixed
+I tested each step in Chrome with the console open, including edge cases such as a missing mp3 file, and empty playlist name and corrupted localStorage f.eks. the button icon bug. See AI_LOG.md entries 3 and 4.
+
+## Known limitations
+- Playlists are stored only in this browser (no accounts or sync)
+- Playlist track cannot be reordered.
+- The volume slider has no effect on iPhones (iOS uesed device volume).
+
+
 
 ## Music credits
 
